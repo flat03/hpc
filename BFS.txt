@@ -1,0 +1,81 @@
+BFS
+
+%%writefile bfs.cu
+
+#include <iostream>
+#include <vector>
+#include <queue>
+#include <omp.h>
+
+using namespace std;
+
+class Graph {
+    int V; // Number of vertices
+    vector<vector<int>> adj; // Adjacency list
+public:
+    Graph(int V) : V(V), adj(V) {}
+    // Add an edge to the graph
+    void addEdge(int v, int w) {
+        adj[v].push_back(w);
+    }
+    // Parallel Breadth-First Search
+    void parallelBFS(int startVertex) {
+        vector<bool> visited(V, false);
+        queue<int> q;
+        double startTime = omp_get_wtime();
+        visited[startVertex] = true;
+        q.push(startVertex);
+        while (!q.empty()) {
+            int v = q.front();
+            q.pop();
+            cout << v << " ";
+            #pragma omp parallel for
+            for (int i = 0; i < adj[v].size(); ++i) {
+                int n = adj[v][i];
+                if (!visited[n]) {
+                    #pragma omp critical
+                    {
+                        visited[n] = true;
+                        q.push(n);
+                    }
+                }
+            }
+        }
+        double endTime = omp_get_wtime();
+        cout << "\nExecution Time (BFS): " << endTime - startTime << " seconds" << endl;
+    }
+};
+
+int main() {
+    int numVertices;
+    cout << "Enter the number of vertices: ";
+    cin >> numVertices;
+
+    // Create a graph
+    Graph g(numVertices);
+
+    // Add edges
+    int numEdges;
+    cout << "Enter the number of edges: ";
+    cin >> numEdges;
+
+    cout << "Enter the edges (format: source destination):" << endl;
+    for (int i = 0; i < numEdges; ++i) {
+        int source, destination;
+        cin >> source >> destination;
+        g.addEdge(source, destination);
+    }
+
+    int startVertex;
+    cout << "Enter the starting vertex for traversal: ";
+    cin >> startVertex;
+
+    cout << "Breadth-First Search (BFS): ";
+    g.parallelBFS(startVertex);
+    cout << endl;
+
+    return 0;
+}
+
+!nvcc -o bfs bfs.cu -Xcompiler -fopenmp
+!./bfs

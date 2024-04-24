@@ -1,0 +1,101 @@
+ASS:BFSDFS
+
+%%writefile dfsbfs.cu
+
+#include <iostream>
+#include <vector>
+#include <queue>
+#include <omp.h>
+
+using namespace std;
+
+class Graph {
+    int V; // Number of vertices
+    vector<vector<int>> adj; // Adjacency list
+public:
+    Graph(int V) : V(V), adj(V) {}
+    // Add an edge to the graph
+    void addEdge(int v, int w) {
+        adj[v].push_back(w);
+    }
+    // Parallel Depth-First Search
+    void parallelDFS(int startVertex) {
+        vector<bool> visited(V, false);
+        double startTime = omp_get_wtime();
+        parallelDFSUtil(startVertex, visited);
+        double endTime = omp_get_wtime();
+        cout << "\nExecution Time (DFS): " << endTime - startTime << " seconds" << endl;
+    }
+    // Parallel DFS utility function
+    void parallelDFSUtil(int v, vector<bool>& visited) {
+        visited[v] = true;
+        cout << v << " ";
+        #pragma omp parallel for
+        for (int i = 0; i < adj[v].size(); ++i) {
+            int n = adj[v][i];
+            if (!visited[n])
+                parallelDFSUtil(n, visited);
+        }
+    }
+    // Parallel Breadth-First Search
+    void parallelBFS(int startVertex) {
+        vector<bool> visited(V, false);
+        queue<int> q;
+        double startTime = omp_get_wtime();
+        visited[startVertex] = true;
+        q.push(startVertex);
+        while (!q.empty()) {
+            int v = q.front();
+            q.pop();
+            cout << v << " ";
+            #pragma omp parallel for
+            for (int i = 0; i < adj[v].size(); ++i) {
+                int n = adj[v][i];
+                if (!visited[n]) {
+                    visited[n] = true;
+                    q.push(n);
+                }
+            }
+        }
+        double endTime = omp_get_wtime();
+        cout << "\nExecution Time (BFS): " << endTime - startTime << " seconds" << endl;
+    }
+};
+
+int main() {
+    int vertices, edges;
+    cout << "Enter the number of vertices in the graph: ";
+    cin >> vertices;
+    Graph g(vertices);
+    cout << "Enter the number of edges in the graph: ";
+    cin >> edges;
+    cout << "Enter the edges (vertex pairs):\n";
+    for (int i = 0; i < edges; ++i) {
+        int v, w;
+        cout << "Edge " << i + 1 << ": ";
+        cin >> v >> w;
+        if (v < 0 || v >= vertices || w < 0 || w >= vertices) {
+            cout << "Invalid vertex! Exiting...\n";
+            return 1;
+        }
+        g.addEdge(v, w);
+    }
+    int startVertex;
+    cout << "Enter the starting vertex for DFS and BFS: ";
+    cin >> startVertex;
+    if (startVertex < 0 || startVertex >= vertices) {
+        cout << "Invalid starting vertex! Exiting...\n";
+        return 1;
+    }
+    cout << "Depth-First Search (DFS): ";
+    g.parallelDFS(startVertex);
+    cout << endl;
+    cout << "Breadth-First Search (BFS): ";
+    g.parallelBFS(startVertex);
+    cout << endl;
+    return 0;
+}
+
+
+!nvcc -o dfsbfs dfsbfs.cu -Xcompiler -fopenmp
+!./dfsbfs
